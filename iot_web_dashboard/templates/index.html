@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raspberry Pi IoT Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-microchip"></i> Raspberry Pi IoT Dashboard</h1>
+            <p class="subtitle">Real-time monitoring from AWS IoT</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab('live')">
+                <i class="fas fa-bolt"></i> Live Data
+            </button>
+            <button class="tab-button" onclick="openTab('historical')">
+                <i class="fas fa-history"></i> Historical Data
+            </button>
+            <button class="tab-button" onclick="openTab('stats')">
+                <i class="fas fa-chart-bar"></i> Statistics
+            </button>
+        </div>
+
+        <div id="live" class="tab-content active">
+            <div class="card">
+                <h2><i class="fas fa-sync-alt"></i> Real-time MQTT Stream</h2>
+                <div class="status-indicator">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="connection-status">Connecting to MQTT...</span>
+                </div>
+                
+                <div class="data-container">
+                    <div class="data-card">
+                        <h3>Live JSON Stream</h3>
+                        <div id="latest-data" class="json-display">
+                            <p class="loading">Waiting for MQTT messages...</p>
+                        </div>
+                        <div class="timestamp">
+                            Last update: <span id="last-updated">--:--:--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="data-card">
+                        <h3>Quick Stats</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-label">Device ID</div>
+                                <div class="stat-value" id="device-id">--</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Value</div>
+                                <div class="stat-value" id="current-value">--</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Status</div>
+                                <div class="stat-value" id="device-status">--</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Message ID</div>
+                                <div class="stat-value" id="message-id">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button onclick="loadLatestData()" class="refresh-btn">
+                    <i class="fas fa-redo"></i> Refresh Manually
+                </button>
+            </div>
+        </div>
+
+        <div id="historical" class="tab-content">
+            <div class="card">
+                <h2><i class="fas fa-database"></i> Historical Data (DynamoDB)</h2>
+                
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="time-range">Time Range:</label>
+                        <select id="time-range" onchange="loadHistoricalData()">
+                            <option value="1">Last hour</option>
+                            <option value="6">Last 6 hours</option>
+                            <option value="24" selected>Last 24 hours</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="historyChart"></canvas>
+                </div>
+                
+                <div class="data-table-container">
+                    <h3>Data Records</h3>
+                    <div id="historical-data" class="data-table">
+                        <p class="loading">Loading historical data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="stats" class="tab-content">
+            <div class="card">
+                <h2><i class="fas fa-chart-pie"></i> Statistics</h2>
+                
+                <div id="stats-content">
+                    <div class="stats-grid-large">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-hashtag"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">Total Readings</div>
+                                <div class="stat-value-big" id="total-readings">0</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-calculator"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">Average Value</div>
+                                <div class="stat-value-big" id="average-value">0</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-arrow-up"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">Maximum</div>
+                                <div class="stat-value-big" id="max-value">0</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-arrow-down"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-label">Minimum</div>
+                                <div class="stat-value-big" id="min-value">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="update-info">
+                        <p><i class="fas fa-info-circle"></i> Statistics from last hour of data</p>
+                        <button onclick="loadStatistics()" class="refresh-btn">
+                            <i class="fas fa-sync-alt"></i> Refresh Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>IoT Dashboard • Raspberry Pi Emulator • AWS IoT Core • DynamoDB</p>
+            <p class="footer-info">Live MQTT Streaming • Last check: <span id="server-time">--:--:--</span></p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
